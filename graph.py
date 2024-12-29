@@ -7,14 +7,6 @@ from langgraph.graph.message import AnyMessage, add_messages
 from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
 from langchain_openai import ChatOpenAI
 
-# Define a search tool using DuckDuckGo API wrapper
-search_DDG = StructuredTool.from_function(
-        name="Search",
-        func=DuckDuckGoSearchAPIWrapper().run,  # Executes DuckDuckGo search using the provided query
-        description=f"""
-        useful for when you need to answer questions about current events. You should ask targeted questions
-        """,
-    )
 
 @tool
 def get_weather(location: str):
@@ -32,7 +24,7 @@ def get_coolest_cities():
     return "nyc, sf"
 
 # List of tools that will be accessible to the graph via the ToolNode
-tools = [get_weather, get_coolest_cities, search_DDG]
+tools = [get_weather, get_coolest_cities]
 tool_node = ToolNode(tools)
 
 # This is the default state same as "MessageState" TypedDict but allows us accessibility to custom keys
