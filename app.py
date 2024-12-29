@@ -1,7 +1,8 @@
 import streamlit as st
 from typing_extensions import TypedDict
 from langchain_openai import ChatOpenAI
-from langchain_core.callbacks.base import BaseCallbackHandler
+from langgraph.graph import StateGraph
+from langgraph.callbacks.streamlit import StreamlitCallback
 
 # Ensure session state is initialized
 if "messages" not in st.session_state:
@@ -23,16 +24,10 @@ class State(TypedDict):
     messages: list  # List of tuples (sender, message)
     intake: dict  # Intake responses
 
-# Custom callback handler for token streaming
-class StreamHandler(BaseCallbackHandler):
-    def __init__(self, container):
-        self.container = container
-        self.text = ""
+# Initialize the callback
+callback = StreamlitCallback()
 
-    def on_llm_new_token(self, token: str, **kwargs):
-        self.text += token
-        self.container.markdown(self.text)  # Stream the token to the container
-
+# Define functions for each step in the PBL process
 def intake_questions(state: State) -> State:
     """Collects teacher-specific context for the PBL design process."""
     intake_questions = [
@@ -49,12 +44,11 @@ def intake_questions(state: State) -> State:
     ]
 
     for question in intake_questions:
-        # If the question hasn't been answered yet
         if question not in state["intake"]:
-            # If there's a user message, assign it to the question
+            # If the last message is from the user, capture the input
             if state["messages"] and state["messages"][-1][0] == "user":
                 state["intake"][question] = state["messages"][-1][1]
-                state["messages"].append(("assistant", f"Got it! Moving to the next question:"))
+                state["messages"].append(("assistant", f"Got it! Moving to the next question."))
             else:
                 # Ask the current question
                 state["messages"].append(("assistant", question))
@@ -69,10 +63,9 @@ def generate_project_idea(state: State) -> State:
     if "project_idea" not in st.session_state:
         intake_summary = "\n".join(f"{key}: {value}" for key, value in state["intake"].items())
         prompt = f"Using the following context, generate a one-paragraph project idea:\n{intake_summary}"
-        with st.container() as response_container:
-            handler = StreamHandler(response_container)
-            llm.invoke([{"role": "user", "content": prompt}], callbacks=[handler])
-        st.session_state["project_idea"] = handler.text
+        response = llm.invoke([{"role": "user", "content": prompt}], callbacks=[callback])
+        state["messages"].append(("assistant", response.content))
+        st.session_state["project_idea"] = response.content
     st.session_state["current_step"] = "refine_project_idea"
     return state
 
@@ -81,10 +74,8 @@ def refine_project_idea(state: State) -> State:
     if state["messages"] and state["messages"][-1][0] == "user":
         user_feedback = state["messages"][-1][1]
         prompt = f"Refine the project idea based on this feedback: {user_feedback}"
-        with st.container() as response_container:
-            handler = StreamHandler(response_container)
-            llm.invoke([{"role": "user", "content": prompt}], callbacks=[handler])
-        state["messages"].append(("assistant", handler.text))
+        response = llm.invoke([{"role": "user", "content": prompt}], callbacks=[callback])
+        state["messages"].append(("assistant", response.content))
         st.session_state["current_step"] = "generate_driving_questions"
     else:
         state["messages"].append(("assistant", "Provide feedback on the project idea:"))
@@ -95,10 +86,9 @@ def generate_driving_questions(state: State) -> State:
     if "driving_questions" not in st.session_state:
         project_idea = st.session_state["project_idea"]
         prompt = f"Based on the project idea: {project_idea}, generate three draft driving questions."
-        with st.container() as response_container:
-            handler = StreamHandler(response_container)
-            llm.invoke([{"role": "user", "content": prompt}], callbacks=[handler])
-        st.session_state["driving_questions"] = handler.text
+        response = llm.invoke([{"role": "user", "content": prompt}], callbacks=[callback])
+        state["messages"].append(("assistant", response.content))
+        st.session_state["driving_questions"] = response.content
     st.session_state["current_step"] = "refine_driving_questions"
     return state
 
@@ -107,10 +97,8 @@ def refine_driving_questions(state: State) -> State:
     if state["messages"] and state["messages"][-1][0] == "user":
         user_feedback = state["messages"][-1][1]
         prompt = f"Refine the driving questions based on this feedback: {user_feedback}"
-        with st.container() as response_container:
-            handler = StreamHandler(response_container)
-            llm.invoke([{"role": "user", "content": prompt}], callbacks=[handler])
-        state["messages"].append(("assistant", handler.text))
+        response = llm.invoke([{"role": "user", "content": prompt}], callbacks=[callback])
+        state["messages"].append(("assistant", response.content))
         st.session_state["current_step"] = "finalize_output"
     else:
         state["messages"].append(("assistant", "Provide feedback on the driving questions:"))
@@ -197,4 +185,5 @@ def display_chat():
 intake_sidebar()
 chatbot_sidebar()
 display_chat()
+
 
