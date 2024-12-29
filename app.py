@@ -96,11 +96,16 @@ graph = graph_builder.compile()
 
 # Main app logic
 if st.session_state["current_step"]:
-    initial_state: State = {"messages": st.session_state["messages"], "intake": st.session_state["intake"]}
-    updated_state = graph.invoke_node(st.session_state["current_step"], initial_state)
-    st.session_state["messages"] = updated_state["messages"]
-    st.session_state["intake"] = updated_state.get("intake", {})
-    st.session_state["current_step"] = graph.get_next_node(st.session_state["current_step"]) or None
+    try:
+        initial_state: State = {"messages": st.session_state["messages"], "intake": st.session_state["intake"]}
+        updated_state = graph.invoke(st.session_state["current_step"], initial_state)
+        st.session_state["messages"] = updated_state["messages"]
+        st.session_state["intake"] = updated_state.get("intake", {})
+        next_step = graph.get_next_node(st.session_state["current_step"])
+        st.session_state["current_step"] = next_step if next_step else None
+    except AttributeError as e:
+        st.error(f"Error: {e}")
+        st.stop()
 
 # Display conversation
 st.write("### Conversation:")
