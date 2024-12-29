@@ -1,86 +1,79 @@
+from typing import Callable, TypeVar
+import inspect
+
+from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+from streamlit.delta_generator import DeltaGenerator
+
+from langchain_core.callbacks.base import BaseCallbackHandler
+from langchain_community.callbacks.streamlit import StreamlitCallbackHandler
 
 
+# Define a function to wrap and add context to Streamlit's integration with LangGraph
+def get_streamlit_cb(parent_container: DeltaGenerator) -> BaseCallbackHandler:
+    """
+    Creates a Streamlit callback handler that integrates fully with any LangChain ChatLLM integration,
+    updating the provided Streamlit container with outputs such as tokens, model responses,
+    and intermediate steps. This function ensures that all callback methods run within
+    the Streamlit execution context, fixing the NoSessionContext() error commonly encountered
+    in Streamlit callbacks.
 
-import streamlit as st
-from typing_extensions import TypedDict
-from langchain_openai import ChatOpenAI
-from langgraph.graph import StateGraph
+    Args:
+        parent_container (DeltaGenerator): The Streamlit container where the text will be rendered
+                                           during the LLM interaction.
+    Returns:
+        BaseCallbackHandler: An instance of StreamlitCallbackHandler configured for full integration
+                             with ChatLLM, enabling dynamic updates in the Streamlit app.
+    """
 
-# Ensure session state is initialized
-if "messages" not in st.session_state:
-    st.session_state["messages"] = []  # Initialize as an empty list
+    # Define a type variable for generic type hinting in the decorator, ensuring the original
+    # function and wrapped function maintain the same return type.
+    fn_return_type = TypeVar('fn_return_type')
 
-# Streamlit page configuration
-st.set_page_config(page_title="Chatbot", page_icon="🤖")
+    # Decorator function to add Streamlit's execution context to a function
+    def add_streamlit_context(fn: Callable[..., fn_return_type]) -> Callable[..., fn_return_type]:
+        """
+        Decorator to ensure that the decorated function runs within the Streamlit execution context.
+        This is necessary for interacting with Streamlit components from within callback functions
+        and prevents the NoSessionContext() error by adding the correct session context.
 
-# Title of the app
-st.title("LangGraph Chatbot")
-openai_api_key = "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"
-# Initialize the OpenAI LLM
-llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4", temperature=0.7)
+        Args:
+            fn (Callable[..., fn_return_type]): The function to be decorated, typically a callback method.
+        Returns:
+            Callable[..., fn_return_type]: The decorated function that includes the Streamlit context setup.
+        """
+        # Retrieve the current Streamlit script execution context.
+        # This context holds session information necessary for Streamlit operations.
+        ctx = get_script_run_ctx()
 
+        def wrapper(*args, **kwargs) -> fn_return_type:
+            """
+            Wrapper function that adds the Streamlit context and then calls the original function.
+            If the Streamlit context is not set, it can lead to NoSessionContext() errors, which this
+            wrapper resolves by ensuring that the correct context is used when the function runs.
 
-# Define the state as a TypedDict
-class State(TypedDict):
-    messages: list  # List of tuples (sender, message)
+            Args:
+                *args: Positional arguments to pass to the original function.
+                **kwargs: Keyword arguments to pass to the original function.
+            Returns:
+                fn_return_type: The result from the original function.
+            """
+            # Add the previously captured Streamlit context to the current execution.
+            # This step fixes NoSessionContext() errors by ensuring that Streamlit knows which session
+            # is executing the code, allowing it to properly manage session state and updates.
+            add_script_run_ctx(ctx=ctx)
+            return fn(*args, **kwargs)  # Call the original function with its arguments
 
+        return wrapper
 
-# Define the chatbot function
-def chatbot(state: State) -> State:
-    user_message = state["messages"][-1][1]  # Last user message
-    response = llm.invoke([{"role": "user", "content": user_message}])
-    state["messages"].append(("assistant", response.content))  # Extract content from the response
-    return state
+    # Create an instance of Streamlit's StreamlitCallbackHandler with the provided Streamlit container
+    st_cb = StreamlitCallbackHandler(parent_container)
 
+    # Iterate over all methods of the StreamlitCallbackHandler instance
+    for method_name, method_func in inspect.getmembers(st_cb, predicate=inspect.ismethod):
+        if method_name.startswith('on_'):  # Identify callback methods that respond to LLM events
+            # Wrap each callback method with the Streamlit context setup to prevent session errors
+            setattr(st_cb, method_name,
+                    add_streamlit_context(method_func))  # Replace the method with the wrapped version
 
-# Initialize StateGraph using the State type
-graph_builder = StateGraph(State)
-
-# Add chatbot node to the graph
-graph_builder.add_node("chatbot", chatbot)
-graph_builder.set_entry_point("chatbot")
-graph_builder.set_finish_point("chatbot")
-
-# Compile the graph
-graph = graph_builder.compile()
-
-
-# Function to stream graph updates
-def stream_graph_updates(user_input: str):
-    initial_state: State = {"messages": [("user", user_input)]}
-    updated_state = graph.invoke(initial_state)
-    return [msg[1] for msg in updated_state["messages"] if msg[0] == "assistant"]
-
-
-# Sidebar for user input
-def chatbot_sidebar():
-    st.sidebar.title("Chat with the Assistant")
-    user_input = st.sidebar.text_input("Your message", key="input", placeholder="Type your message here...")
-    if st.sidebar.button("Send"):
-        if user_input:
-            # Add user message to conversation history
-            st.session_state["messages"].append(("user", user_input))
-
-            # Get chatbot response
-            responses = stream_graph_updates(user_input)
-
-            # Add chatbot responses to conversation history
-            for response in responses:
-                st.session_state["messages"].append(("assistant", response))
-
-
-# Main page to display conversation history
-def display_chat():
-    st.write("### Conversation:")
-    # Safely access messages
-    messages = st.session_state.get("messages", [])
-    for sender, message in messages:
-        if sender == "user":
-            st.write(f"**You:** {message}")
-        else:
-            st.write(f"**Assistant:** {message}")
-
-
-# Run the sidebar and main chat display
-chatbot_sidebar()
-display_chat()
+    # Return the fully configured StreamlitCallbackHandler instance, now context-aware and integrated with any ChatLLM
+    return st_cb
