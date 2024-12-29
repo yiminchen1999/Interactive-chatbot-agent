@@ -4,7 +4,6 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph
 
 import os
-from dotenv import load_dotenv
 import streamlit as st
 from langchain_core.messages import AIMessage, HumanMessage
 from graph import invoke_our_graph
@@ -25,9 +24,6 @@ openai_api_key = st.secrets["openai_api_key"]
 st.title("Project-Based Learning Design Assistant")
 llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4", temperature=0.7)
 
-# Utility function to get a Streamlit callback handler with context
-
-load_dotenv()
 
 st.title("Project-Based Learning Design Assistant")
 st.markdown("#### Step-by-Step Design with Dynamic Feedback")
