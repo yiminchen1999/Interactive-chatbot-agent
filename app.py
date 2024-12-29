@@ -80,5 +80,6 @@ def display_chat():
 
 
 # Run the sidebar and main chat display
+chatbot_sidebar()
 display_chat()
 
