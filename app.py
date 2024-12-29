@@ -27,21 +27,24 @@ class State(TypedDict):
 def intake_questions(state: State) -> State:
     """Collects teacher-specific context for the PBL design process."""
     intake_questions = [
-        "In which state and district do you teach?",
-        "Which grade level and subject area(s) do you teach?",
-        "What is the topic for your project?",
-        "Which set of content standards will you be using (e.g., Common Core, NGSS, state-level standards)?",
-        "Are there specific skills you want students to develop (e.g., social-emotional learning, 21st-century skills)?",
-        "How long should the project last?",
-        "How long are your class periods?",
-        "Do you want the students to work in groups?",
-        "What types of technology do the students have access to?",
-        "Is there a specific pedagogical model you would like to follow (e.g., Understanding by Design)?"
+        ("state_district", "In which state and district do you teach?"),
+        ("grade_subject", "Which grade level and subject area(s) do you teach?"),
+        ("topic", "What is the topic for your project?"),
+        ("standards", "Which set of content standards will you be using (e.g., Common Core, NGSS, state-level standards)?"),
+        ("skills", "Are there specific skills you want students to develop (e.g., social-emotional learning, 21st-century skills)?"),
+        ("duration", "How long should the project last?"),
+        ("class_periods", "How long are your class periods?"),
+        ("group_work", "Do you want the students to work in groups?"),
+        ("technology", "What types of technology do the students have access to?"),
+        ("pedagogical_model", "Is there a specific pedagogical model you would like to follow (e.g., Understanding by Design)?")
     ]
-    for question in intake_questions:
-        if question not in state["intake"]:
+
+    for key, question in intake_questions:
+        if key not in state["intake"]:
             state["messages"].append(("assistant", question))
             return state
+
+    # Move to the next step after all questions are answered
     st.session_state["current_node"] = "generate_project_idea"
     return state
 
@@ -165,3 +168,4 @@ def display_chat():
 # Run the sidebar and main chat display
 chatbot_sidebar()
 display_chat()
+
