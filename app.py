@@ -14,7 +14,7 @@ if "intake_index" not in st.session_state:
     st.session_state["intake_index"] = 0
 
 # Streamlit page configuration
-st.set_page_config(page_title="PBL Design Assistant", page_icon="📚")
+st.set_page_config(page_title="PBL Design Assistant", page_icon="📚", layout="wide")
 openai_api_key = st.secrets["openai_api_key"]
 # Title of the app
 st.title("Project-Based Learning Design Assistant")
@@ -136,6 +136,27 @@ graph_builder.set_finish_point("finalize_output")
 # Compile the graph
 graph = graph_builder.compile()
 
+# Sidebar for intake questions
+def intake_sidebar():
+    st.sidebar.title("Teacher Intake")
+    intake_prompts = [
+        ("state_district", "In which state and district do you teach?"),
+        ("grade_subject", "Which grade level and subject area(s) do you teach?"),
+        ("topic", "What is the topic for your project?"),
+        ("standards", "Which set of content standards will you be using?"),
+        ("skills", "Specific skills for students to develop?"),
+        ("duration", "How long should the project last?"),
+        ("class_periods", "How long are your class periods?"),
+        ("group_work", "Do you want the students to work in groups?"),
+        ("technology", "What types of technology do students have access to?"),
+        ("pedagogical_model", "Specific pedagogical model to follow?")
+    ]
+
+    for key, prompt in intake_prompts:
+        response = st.sidebar.text_input(prompt, key=key)
+        if response:
+            st.session_state["intake"][key] = response
+
 # Sidebar for user input
 def chatbot_sidebar():
     st.sidebar.title("Chat with the Assistant")
@@ -179,7 +200,8 @@ def display_chat():
     if "final_output" in st.session_state:
         st.download_button("Download Final Output", st.session_state["final_output"], "final_output.txt")
 
-# Run the sidebar and main chat display
+# Run the app
+intake_sidebar()
 chatbot_sidebar()
 display_chat()
 
