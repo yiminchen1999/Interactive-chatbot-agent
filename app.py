@@ -1,5 +1,4 @@
 import streamlit as st
-from secret_api_key import openai_api_key
 from typing_extensions import TypedDict
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph
