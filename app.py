@@ -62,11 +62,10 @@ def intake_questions(state: State) -> State:
 
 def generate_project_idea(state: State) -> State:
     """Generates a draft project idea based on intake responses."""
-    if "intake_summary" not in state:
-        intake_summary = "\n".join(f"{key}: {value}" for key, value in state["intake"].items())
-        prompt = f"Using the following context, generate a one-paragraph project idea:\n{intake_summary}"
-        response = llm.invoke([{"role": "user", "content": prompt}])
-        state["messages"].append(("assistant", response.content))
+    intake_summary = "\n".join(f"{key}: {value}" for key, value in state["intake"].items())
+    prompt = f"Using the following context, generate a one-paragraph project idea:\n{intake_summary}"
+    response = llm.invoke([{"role": "user", "content": prompt}])
+    state["messages"].append(("assistant", response.content))
     st.session_state["current_node"] = "refine_project_idea"
     return state
 
@@ -85,12 +84,11 @@ def refine_project_idea(state: State) -> State:
 
 def generate_driving_questions(state: State) -> State:
     """Generates three draft driving questions."""
-    if "Generate three draft driving questions:" not in state["messages"][-1][1]:
-        project_idea = state["messages"][-1][1]
-        prompt = f"Based on the project idea: {project_idea}, generate three draft driving questions."
-        response = llm.invoke([{"role": "user", "content": prompt}])
-        state["messages"].append(("assistant", response.content))
-        st.session_state["current_node"] = "refine_driving_questions"
+    project_idea = state["messages"][-1][1]
+    prompt = f"Based on the project idea: {project_idea}, generate three draft driving questions."
+    response = llm.invoke([{"role": "user", "content": prompt}])
+    state["messages"].append(("assistant", response.content))
+    st.session_state["current_node"] = "refine_driving_questions"
     return state
 
 def refine_driving_questions(state: State) -> State:
@@ -108,12 +106,11 @@ def refine_driving_questions(state: State) -> State:
 
 def finalize_output(state: State) -> State:
     """Finalizes the project idea and driving questions for download."""
-    if "Your project idea and driving questions are ready for download." not in state["messages"][-1][1]:
-        project_idea = state["messages"][-2][1]
-        driving_questions = state["messages"][-1][1]
-        final_output = f"Project Idea:\n{project_idea}\n\nDriving Questions:\n{driving_questions}"
-        state["messages"].append(("assistant", "Your project idea and driving questions are ready for download."))
-        state["output"] = final_output
+    project_idea = state["messages"][-2][1]
+    driving_questions = state["messages"][-1][1]
+    final_output = f"Project Idea:\n{project_idea}\n\nDriving Questions:\n{driving_questions}"
+    state["messages"].append(("assistant", "Your project idea and driving questions are ready for download."))
+    state["output"] = final_output
     return state
 
 # Initialize StateGraph using the State type
