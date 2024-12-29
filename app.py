@@ -25,6 +25,14 @@ class State(TypedDict):
     messages: list  # List of tuples (sender, message)
     intake: dict  # Intake responses
 
+# Add logging for debugging
+def log_debug(state):
+    st.write("### Debug Info")
+    st.write("Current Node:", st.session_state["current_node"])
+    st.write("Intake Index:", st.session_state["intake_index"])
+    st.write("Intake Data:", st.session_state["intake"])
+    st.write("Messages:", state["messages"])
+
 # Define functions for each step in the PBL process
 def intake_questions(state: State) -> State:
     """Collects teacher-specific context for the PBL design process."""
@@ -62,9 +70,12 @@ def generate_project_idea(state: State) -> State:
     if "project_idea" not in st.session_state:
         intake_summary = "\n".join(f"{key}: {value}" for key, value in state["intake"].items())
         prompt = f"Using the following context, generate a one-paragraph project idea:\n{intake_summary}"
-        response = llm.invoke([{"role": "user", "content": prompt}])
-        state["messages"].append(("assistant", response.content))
-        st.session_state["project_idea"] = response.content
+        try:
+            response = llm.invoke([{"role": "user", "content": prompt}])
+            state["messages"].append(("assistant", response.content))
+            st.session_state["project_idea"] = response.content
+        except Exception as e:
+            state["messages"].append(("assistant", f"Error generating project idea: {e}"))
     st.session_state["current_node"] = "refine_project_idea"
     return state
 
@@ -73,9 +84,12 @@ def refine_project_idea(state: State) -> State:
     if state["messages"] and state["messages"][-1][0] == "user":
         user_feedback = state["messages"][-1][1]
         prompt = f"Refine the project idea based on this feedback: {user_feedback}"
-        response = llm.invoke([{"role": "user", "content": prompt}])
-        state["messages"].append(("assistant", response.content))
-        st.session_state["current_node"] = "generate_driving_questions"
+        try:
+            response = llm.invoke([{"role": "user", "content": prompt}])
+            state["messages"].append(("assistant", response.content))
+            st.session_state["current_node"] = "generate_driving_questions"
+        except Exception as e:
+            state["messages"].append(("assistant", f"Error refining project idea: {e}"))
     else:
         state["messages"].append(("assistant", "Provide feedback on the project idea:"))
     return state
@@ -85,9 +99,12 @@ def generate_driving_questions(state: State) -> State:
     if "driving_questions" not in st.session_state:
         project_idea = st.session_state["project_idea"]
         prompt = f"Based on the project idea: {project_idea}, generate three draft driving questions."
-        response = llm.invoke([{"role": "user", "content": prompt}])
-        state["messages"].append(("assistant", response.content))
-        st.session_state["driving_questions"] = response.content
+        try:
+            response = llm.invoke([{"role": "user", "content": prompt}])
+            state["messages"].append(("assistant", response.content))
+            st.session_state["driving_questions"] = response.content
+        except Exception as e:
+            state["messages"].append(("assistant", f"Error generating driving questions: {e}"))
     st.session_state["current_node"] = "refine_driving_questions"
     return state
 
@@ -96,9 +113,12 @@ def refine_driving_questions(state: State) -> State:
     if state["messages"] and state["messages"][-1][0] == "user":
         user_feedback = state["messages"][-1][1]
         prompt = f"Refine the driving questions based on this feedback: {user_feedback}"
-        response = llm.invoke([{"role": "user", "content": prompt}])
-        state["messages"].append(("assistant", response.content))
-        st.session_state["current_node"] = "finalize_output"
+        try:
+            response = llm.invoke([{"role": "user", "content": prompt}])
+            state["messages"].append(("assistant", response.content))
+            st.session_state["current_node"] = "finalize_output"
+        except Exception as e:
+            state["messages"].append(("assistant", f"Error refining driving questions: {e}"))
     else:
         state["messages"].append(("assistant", "Provide feedback on the driving questions:"))
     return state
@@ -106,11 +126,14 @@ def refine_driving_questions(state: State) -> State:
 def finalize_output(state: State) -> State:
     """Finalizes the project idea and driving questions for download."""
     if "final_output" not in st.session_state:
-        project_idea = st.session_state["project_idea"]
-        driving_questions = st.session_state["driving_questions"]
-        final_output = f"Project Idea:\n{project_idea}\n\nDriving Questions:\n{driving_questions}"
-        state["messages"].append(("assistant", "Your project idea and driving questions are ready for download."))
-        st.session_state["final_output"] = final_output
+        try:
+            project_idea = st.session_state["project_idea"]
+            driving_questions = st.session_state["driving_questions"]
+            final_output = f"Project Idea:\n{project_idea}\n\nDriving Questions:\n{driving_questions}"
+            state["messages"].append(("assistant", "Your project idea and driving questions are ready for download."))
+            st.session_state["final_output"] = final_output
+        except Exception as e:
+            state["messages"].append(("assistant", f"Error finalizing output: {e}"))
     return state
 
 # Initialize StateGraph using the State type
@@ -204,5 +227,6 @@ def display_chat():
 intake_sidebar()
 chatbot_sidebar()
 display_chat()
+log_debug({"messages": st.session_state.get("messages", []), "intake": st.session_state.get("intake", {})})
 
 
