@@ -1,7 +1,3 @@
-
-import os
-from dotenv import load_dotenv
-
 import streamlit as st
 from langchain_core.messages import AIMessage, HumanMessage
 from typing_extensions import TypedDict
