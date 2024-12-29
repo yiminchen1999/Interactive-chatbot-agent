@@ -51,7 +51,8 @@ def intake_questions(state: State) -> State:
             state["intake"][key] = state["messages"][-1][1]  # Save user input
             st.session_state["intake_index"] += 1  # Move to the next question
         else:
-            state["messages"].append(("assistant", question))
+            if not state["messages"] or state["messages"][-1][1] != question:
+                state["messages"].append(("assistant", question))
             return state
 
     # Move to the next step after all questions are answered
@@ -61,53 +62,58 @@ def intake_questions(state: State) -> State:
 
 def generate_project_idea(state: State) -> State:
     """Generates a draft project idea based on intake responses."""
-    intake_summary = "\n".join(f"{key}: {value}" for key, value in state["intake"].items())
-    prompt = f"Using the following context, generate a one-paragraph project idea:\n{intake_summary}"
-    response = llm.invoke([{"role": "user", "content": prompt}])
-    state["messages"].append(("assistant", response.content))
+    if "intake_summary" not in state:
+        intake_summary = "\n".join(f"{key}: {value}" for key, value in state["intake"].items())
+        prompt = f"Using the following context, generate a one-paragraph project idea:\n{intake_summary}"
+        response = llm.invoke([{"role": "user", "content": prompt}])
+        state["messages"].append(("assistant", response.content))
     st.session_state["current_node"] = "refine_project_idea"
     return state
 
 def refine_project_idea(state: State) -> State:
     """Refines the project idea based on user feedback."""
-    if state["messages"][-1][1] != "Provide feedback on the project idea:":
+    if "Provide feedback on the project idea:" not in state["messages"][-1][1]:
         state["messages"].append(("assistant", "Provide feedback on the project idea:"))
         return state
-    user_feedback = state["messages"][-1][1]
-    prompt = f"Refine the project idea based on this feedback: {user_feedback}"
-    response = llm.invoke([{"role": "user", "content": prompt}])
-    state["messages"].append(("assistant", response.content))
-    st.session_state["current_node"] = "generate_driving_questions"
+    if state["messages"][-1][0] == "user":
+        user_feedback = state["messages"][-1][1]
+        prompt = f"Refine the project idea based on this feedback: {user_feedback}"
+        response = llm.invoke([{"role": "user", "content": prompt}])
+        state["messages"].append(("assistant", response.content))
+        st.session_state["current_node"] = "generate_driving_questions"
     return state
 
 def generate_driving_questions(state: State) -> State:
     """Generates three draft driving questions."""
-    project_idea = state["messages"][-1][1]
-    prompt = f"Based on the project idea: {project_idea}, generate three draft driving questions."
-    response = llm.invoke([{"role": "user", "content": prompt}])
-    state["messages"].append(("assistant", response.content))
-    st.session_state["current_node"] = "refine_driving_questions"
+    if "Generate three draft driving questions:" not in state["messages"][-1][1]:
+        project_idea = state["messages"][-1][1]
+        prompt = f"Based on the project idea: {project_idea}, generate three draft driving questions."
+        response = llm.invoke([{"role": "user", "content": prompt}])
+        state["messages"].append(("assistant", response.content))
+        st.session_state["current_node"] = "refine_driving_questions"
     return state
 
 def refine_driving_questions(state: State) -> State:
     """Refines the driving questions based on user feedback."""
-    if state["messages"][-1][1] != "Provide feedback on the driving questions:":
+    if "Provide feedback on the driving questions:" not in state["messages"][-1][1]:
         state["messages"].append(("assistant", "Provide feedback on the driving questions:"))
         return state
-    user_feedback = state["messages"][-1][1]
-    prompt = f"Refine the driving questions based on this feedback: {user_feedback}"
-    response = llm.invoke([{"role": "user", "content": prompt}])
-    state["messages"].append(("assistant", response.content))
-    st.session_state["current_node"] = "finalize_output"
+    if state["messages"][-1][0] == "user":
+        user_feedback = state["messages"][-1][1]
+        prompt = f"Refine the driving questions based on this feedback: {user_feedback}"
+        response = llm.invoke([{"role": "user", "content": prompt}])
+        state["messages"].append(("assistant", response.content))
+        st.session_state["current_node"] = "finalize_output"
     return state
 
 def finalize_output(state: State) -> State:
     """Finalizes the project idea and driving questions for download."""
-    project_idea = state["messages"][-2][1]
-    driving_questions = state["messages"][-1][1]
-    final_output = f"Project Idea:\n{project_idea}\n\nDriving Questions:\n{driving_questions}"
-    state["messages"].append(("assistant", "Your project idea and driving questions are ready for download."))
-    state["output"] = final_output
+    if "Your project idea and driving questions are ready for download." not in state["messages"][-1][1]:
+        project_idea = state["messages"][-2][1]
+        driving_questions = state["messages"][-1][1]
+        final_output = f"Project Idea:\n{project_idea}\n\nDriving Questions:\n{driving_questions}"
+        state["messages"].append(("assistant", "Your project idea and driving questions are ready for download."))
+        state["output"] = final_output
     return state
 
 # Initialize StateGraph using the State type
