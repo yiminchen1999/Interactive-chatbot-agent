@@ -41,7 +41,11 @@ def intake_questions(state: State) -> State:
 
     for question in intake_questions:
         if question not in state["intake"]:
-            state["messages"].append(("assistant", question))
+            if state["messages"] and state["messages"][-1][0] == "user":
+                state["intake"][question] = state["messages"][-1][1]
+                state["messages"].append(("assistant", f"Got it! Moving to the next question."))
+            else:
+                state["messages"].append(("assistant", question))
             return state
 
     st.session_state["current_step"] = "generate_project_idea"
