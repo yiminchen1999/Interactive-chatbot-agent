@@ -41,76 +41,76 @@ def intake_questions(state: State) -> State:
         ("pedagogical_model", "Is there a specific pedagogical model you would like to follow (e.g., Understanding by Design)?")
     ]
 
-    # Get the current question based on intake index
     index = st.session_state["intake_index"]
     if index < len(intake_questions):
         key, question = intake_questions[index]
 
-        # Check if user has provided a response
         if state["messages"] and state["messages"][-1][0] == "user":
-            state["intake"][key] = state["messages"][-1][1]  # Save user input
-            st.session_state["intake_index"] += 1  # Move to the next question
+            state["intake"][key] = state["messages"][-1][1]
+            st.session_state["intake_index"] += 1
         else:
             if not state["messages"] or state["messages"][-1][1] != question:
                 state["messages"].append(("assistant", question))
             return state
 
-    # Move to the next step after all questions are answered
     if st.session_state["intake_index"] >= len(intake_questions):
         st.session_state["current_node"] = "generate_project_idea"
     return state
 
 def generate_project_idea(state: State) -> State:
     """Generates a draft project idea based on intake responses."""
-    intake_summary = "\n".join(f"{key}: {value}" for key, value in state["intake"].items())
-    prompt = f"Using the following context, generate a one-paragraph project idea:\n{intake_summary}"
-    response = llm.invoke([{"role": "user", "content": prompt}])
-    state["messages"].append(("assistant", response.content))
+    if "project_idea" not in st.session_state:
+        intake_summary = "\n".join(f"{key}: {value}" for key, value in state["intake"].items())
+        prompt = f"Using the following context, generate a one-paragraph project idea:\n{intake_summary}"
+        response = llm.invoke([{"role": "user", "content": prompt}])
+        state["messages"].append(("assistant", response.content))
+        st.session_state["project_idea"] = response.content
     st.session_state["current_node"] = "refine_project_idea"
     return state
 
 def refine_project_idea(state: State) -> State:
     """Refines the project idea based on user feedback."""
-    if "Provide feedback on the project idea:" not in state["messages"][-1][1]:
-        state["messages"].append(("assistant", "Provide feedback on the project idea:"))
-        return state
-    if state["messages"][-1][0] == "user":
+    if state["messages"] and state["messages"][-1][0] == "user":
         user_feedback = state["messages"][-1][1]
         prompt = f"Refine the project idea based on this feedback: {user_feedback}"
         response = llm.invoke([{"role": "user", "content": prompt}])
         state["messages"].append(("assistant", response.content))
         st.session_state["current_node"] = "generate_driving_questions"
+    else:
+        state["messages"].append(("assistant", "Provide feedback on the project idea:"))
     return state
 
 def generate_driving_questions(state: State) -> State:
     """Generates three draft driving questions."""
-    project_idea = state["messages"][-1][1]
-    prompt = f"Based on the project idea: {project_idea}, generate three draft driving questions."
-    response = llm.invoke([{"role": "user", "content": prompt}])
-    state["messages"].append(("assistant", response.content))
+    if "driving_questions" not in st.session_state:
+        project_idea = st.session_state["project_idea"]
+        prompt = f"Based on the project idea: {project_idea}, generate three draft driving questions."
+        response = llm.invoke([{"role": "user", "content": prompt}])
+        state["messages"].append(("assistant", response.content))
+        st.session_state["driving_questions"] = response.content
     st.session_state["current_node"] = "refine_driving_questions"
     return state
 
 def refine_driving_questions(state: State) -> State:
     """Refines the driving questions based on user feedback."""
-    if "Provide feedback on the driving questions:" not in state["messages"][-1][1]:
-        state["messages"].append(("assistant", "Provide feedback on the driving questions:"))
-        return state
-    if state["messages"][-1][0] == "user":
+    if state["messages"] and state["messages"][-1][0] == "user":
         user_feedback = state["messages"][-1][1]
         prompt = f"Refine the driving questions based on this feedback: {user_feedback}"
         response = llm.invoke([{"role": "user", "content": prompt}])
         state["messages"].append(("assistant", response.content))
         st.session_state["current_node"] = "finalize_output"
+    else:
+        state["messages"].append(("assistant", "Provide feedback on the driving questions:"))
     return state
 
 def finalize_output(state: State) -> State:
     """Finalizes the project idea and driving questions for download."""
-    project_idea = state["messages"][-2][1]
-    driving_questions = state["messages"][-1][1]
-    final_output = f"Project Idea:\n{project_idea}\n\nDriving Questions:\n{driving_questions}"
-    state["messages"].append(("assistant", "Your project idea and driving questions are ready for download."))
-    state["output"] = final_output
+    if "final_output" not in st.session_state:
+        project_idea = st.session_state["project_idea"]
+        driving_questions = st.session_state["driving_questions"]
+        final_output = f"Project Idea:\n{project_idea}\n\nDriving Questions:\n{driving_questions}"
+        state["messages"].append(("assistant", "Your project idea and driving questions are ready for download."))
+        st.session_state["final_output"] = final_output
     return state
 
 # Initialize StateGraph using the State type
@@ -176,10 +176,11 @@ def display_chat():
         else:
             st.write(f"**Assistant:** {message}")
 
-    if "output" in st.session_state:
-        st.download_button("Download Final Output", st.session_state["output"], "final_output.txt")
+    if "final_output" in st.session_state:
+        st.download_button("Download Final Output", st.session_state["final_output"], "final_output.txt")
 
 # Run the sidebar and main chat display
 chatbot_sidebar()
 display_chat()
+
 
