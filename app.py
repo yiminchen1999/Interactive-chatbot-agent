@@ -102,7 +102,7 @@ if st.session_state["current_step"]:
     st.session_state["intake"] = updated_state.get("intake", {})
     st.session_state["current_step"] = graph.get_next_node(st.session_state["current_step"]) or None
 
-# Display conversation
+# Display conversation using `st.write`
 st.write("### Conversation:")
 for sender, message in st.session_state["messages"]:
     if sender == "user":

@@ -3,3 +3,6 @@ langchain_openai
 streamlit
 typing
 langgraph
+langchain-community
+python-dotenv
+duckduckgo-search
