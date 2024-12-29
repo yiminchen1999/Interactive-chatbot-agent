@@ -41,8 +41,12 @@ def intake_questions(state: State) -> State:
 
     for key, question in intake_questions:
         if key not in state["intake"]:
-            state["messages"].append(("assistant", question))
-            return state
+            # Check if the user has just provided an answer
+            if state["messages"] and state["messages"][-1][0] == "user":
+                state["intake"][key] = state["messages"][-1][1]  # Save user input
+            else:
+                state["messages"].append(("assistant", question))
+                return state
 
     # Move to the next step after all questions are answered
     st.session_state["current_node"] = "generate_project_idea"
@@ -168,5 +172,4 @@ def display_chat():
 # Run the sidebar and main chat display
 chatbot_sidebar()
 display_chat()
-
 
