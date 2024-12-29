@@ -33,7 +33,6 @@ class StreamHandler(BaseCallbackHandler):
         self.text += token
         self.container.markdown(self.text)  # Stream the token to the container
 
-# Define functions for each step in the PBL process
 def intake_questions(state: State) -> State:
     """Collects teacher-specific context for the PBL design process."""
     intake_questions = [
@@ -50,14 +49,18 @@ def intake_questions(state: State) -> State:
     ]
 
     for question in intake_questions:
+        # If the question hasn't been answered yet
         if question not in state["intake"]:
+            # If there's a user message, assign it to the question
             if state["messages"] and state["messages"][-1][0] == "user":
                 state["intake"][question] = state["messages"][-1][1]
-                state["messages"].append(("assistant", f"Got it! Moving to the next question."))
+                state["messages"].append(("assistant", f"Got it! Moving to the next question:"))
             else:
+                # Ask the current question
                 state["messages"].append(("assistant", question))
             return state
 
+    # All questions answered, proceed to the next step
     st.session_state["current_step"] = "generate_project_idea"
     return state
 
