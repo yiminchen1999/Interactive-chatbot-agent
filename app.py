@@ -8,6 +8,8 @@ if "messages" not in st.session_state:
     st.session_state["messages"] = []  # Initialize as an empty list
 if "intake" not in st.session_state:
     st.session_state["intake"] = {}  # Initialize intake responses
+if "current_node" not in st.session_state:
+    st.session_state["current_node"] = "intake_questions"
 
 # Streamlit page configuration
 st.set_page_config(page_title="PBL Design Assistant", page_icon="📚")
@@ -40,6 +42,7 @@ def intake_questions(state: State) -> State:
         if question not in state["intake"]:
             state["messages"].append(("assistant", question))
             return state
+    st.session_state["current_node"] = "generate_project_idea"
     return state
 
 def generate_project_idea(state: State) -> State:
@@ -48,14 +51,19 @@ def generate_project_idea(state: State) -> State:
     prompt = f"Using the following context, generate a one-paragraph project idea:\n{intake_summary}"
     response = llm.invoke([{"role": "user", "content": prompt}])
     state["messages"].append(("assistant", response.content))
+    st.session_state["current_node"] = "refine_project_idea"
     return state
 
 def refine_project_idea(state: State) -> State:
     """Refines the project idea based on user feedback."""
-    user_message = state["messages"][-1][1]
-    prompt = f"Refine the project idea based on this feedback: {user_message}"
+    if "Provide feedback on the project idea:" not in state["messages"][-1][1]:
+        state["messages"].append(("assistant", "Provide feedback on the project idea:"))
+        return state
+    user_feedback = state["messages"][-1][1]
+    prompt = f"Refine the project idea based on this feedback: {user_feedback}"
     response = llm.invoke([{"role": "user", "content": prompt}])
     state["messages"].append(("assistant", response.content))
+    st.session_state["current_node"] = "generate_driving_questions"
     return state
 
 def generate_driving_questions(state: State) -> State:
@@ -64,6 +72,19 @@ def generate_driving_questions(state: State) -> State:
     prompt = f"Based on the project idea: {project_idea}, generate three draft driving questions."
     response = llm.invoke([{"role": "user", "content": prompt}])
     state["messages"].append(("assistant", response.content))
+    st.session_state["current_node"] = "refine_driving_questions"
+    return state
+
+def refine_driving_questions(state: State) -> State:
+    """Refines the driving questions based on user feedback."""
+    if "Provide feedback on the driving questions:" not in state["messages"][-1][1]:
+        state["messages"].append(("assistant", "Provide feedback on the driving questions:"))
+        return state
+    user_feedback = state["messages"][-1][1]
+    prompt = f"Refine the driving questions based on this feedback: {user_feedback}"
+    response = llm.invoke([{"role": "user", "content": prompt}])
+    state["messages"].append(("assistant", response.content))
+    st.session_state["current_node"] = "finalize_output"
     return state
 
 def finalize_output(state: State) -> State:
@@ -83,6 +104,7 @@ graph_builder.add_node("intake_questions", intake_questions)
 graph_builder.add_node("generate_project_idea", generate_project_idea)
 graph_builder.add_node("refine_project_idea", refine_project_idea)
 graph_builder.add_node("generate_driving_questions", generate_driving_questions)
+graph_builder.add_node("refine_driving_questions", refine_driving_questions)
 graph_builder.add_node("finalize_output", finalize_output)
 
 # Define the flow
@@ -90,32 +112,12 @@ graph_builder.set_entry_point("intake_questions")
 graph_builder.add_edge("intake_questions", "generate_project_idea")
 graph_builder.add_edge("generate_project_idea", "refine_project_idea")
 graph_builder.add_edge("refine_project_idea", "generate_driving_questions")
-graph_builder.add_edge("generate_driving_questions", "finalize_output")
+graph_builder.add_edge("generate_driving_questions", "refine_driving_questions")
+graph_builder.add_edge("refine_driving_questions", "finalize_output")
 graph_builder.set_finish_point("finalize_output")
 
 # Compile the graph
 graph = graph_builder.compile()
-
-# Sidebar for teacher intake questions
-def intake_sidebar():
-    st.sidebar.title("Teacher Intake")
-    intake_prompts = [
-        ("state_district", "In which state and district do you teach?"),
-        ("grade_subject", "Which grade level and subject area(s) do you teach?"),
-        ("topic", "What is the topic for your project?"),
-        ("standards", "Which set of content standards will you be using?"),
-        ("skills", "Specific skills for students to develop?"),
-        ("duration", "How long should the project last?"),
-        ("class_periods", "How long are your class periods?"),
-        ("group_work", "Do you want the students to work in groups?"),
-        ("technology", "What types of technology do students have access to?"),
-        ("pedagogical_model", "Specific pedagogical model to follow?")
-    ]
-
-    for key, prompt in intake_prompts:
-        response = st.sidebar.text_input(prompt, key=key)
-        if response:
-            st.session_state["intake"][key] = response
 
 # Sidebar for user input
 def chatbot_sidebar():
@@ -128,7 +130,20 @@ def chatbot_sidebar():
 
             # Process user input through the graph
             initial_state: State = {"messages": st.session_state["messages"], "intake": st.session_state["intake"]}
-            updated_state = graph.invoke(initial_state)
+            current_node = st.session_state["current_node"]
+
+            if current_node == "intake_questions":
+                updated_state = intake_questions(initial_state)
+            elif current_node == "generate_project_idea":
+                updated_state = generate_project_idea(initial_state)
+            elif current_node == "refine_project_idea":
+                updated_state = refine_project_idea(initial_state)
+            elif current_node == "generate_driving_questions":
+                updated_state = generate_driving_questions(initial_state)
+            elif current_node == "refine_driving_questions":
+                updated_state = refine_driving_questions(initial_state)
+            elif current_node == "finalize_output":
+                updated_state = finalize_output(initial_state)
 
             # Update session state with responses
             st.session_state["messages"] = updated_state["messages"]
@@ -148,6 +163,5 @@ def display_chat():
         st.download_button("Download Final Output", st.session_state["output"], "final_output.txt")
 
 # Run the sidebar and main chat display
-intake_sidebar()
 chatbot_sidebar()
 display_chat()
