@@ -10,6 +10,8 @@ if "intake" not in st.session_state:
     st.session_state["intake"] = {}  # Initialize intake responses
 if "current_node" not in st.session_state:
     st.session_state["current_node"] = "intake_questions"
+if "intake_index" not in st.session_state:
+    st.session_state["intake_index"] = 0
 
 # Streamlit page configuration
 st.set_page_config(page_title="PBL Design Assistant", page_icon="📚")
@@ -39,17 +41,22 @@ def intake_questions(state: State) -> State:
         ("pedagogical_model", "Is there a specific pedagogical model you would like to follow (e.g., Understanding by Design)?")
     ]
 
-    for key, question in intake_questions:
-        if key not in state["intake"]:
-            # Check if the user has just provided an answer
-            if state["messages"] and state["messages"][-1][0] == "user":
-                state["intake"][key] = state["messages"][-1][1]  # Save user input
-            else:
-                state["messages"].append(("assistant", question))
-                return state
+    # Get the current question based on intake index
+    index = st.session_state["intake_index"]
+    if index < len(intake_questions):
+        key, question = intake_questions[index]
+
+        # Check if user has provided a response
+        if state["messages"] and state["messages"][-1][0] == "user":
+            state["intake"][key] = state["messages"][-1][1]  # Save user input
+            st.session_state["intake_index"] += 1  # Move to the next question
+        else:
+            state["messages"].append(("assistant", question))
+            return state
 
     # Move to the next step after all questions are answered
-    st.session_state["current_node"] = "generate_project_idea"
+    if st.session_state["intake_index"] >= len(intake_questions):
+        st.session_state["current_node"] = "generate_project_idea"
     return state
 
 def generate_project_idea(state: State) -> State:
@@ -63,7 +70,7 @@ def generate_project_idea(state: State) -> State:
 
 def refine_project_idea(state: State) -> State:
     """Refines the project idea based on user feedback."""
-    if "Provide feedback on the project idea:" not in state["messages"][-1][1]:
+    if state["messages"][-1][1] != "Provide feedback on the project idea:":
         state["messages"].append(("assistant", "Provide feedback on the project idea:"))
         return state
     user_feedback = state["messages"][-1][1]
@@ -84,7 +91,7 @@ def generate_driving_questions(state: State) -> State:
 
 def refine_driving_questions(state: State) -> State:
     """Refines the driving questions based on user feedback."""
-    if "Provide feedback on the driving questions:" not in state["messages"][-1][1]:
+    if state["messages"][-1][1] != "Provide feedback on the driving questions:":
         state["messages"].append(("assistant", "Provide feedback on the driving questions:"))
         return state
     user_feedback = state["messages"][-1][1]
