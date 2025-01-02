@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 import streamlit as st
 from langchain_core.messages import AIMessage, HumanMessage
-
+from langchain_openai import ChatOpenAI
 from graph import invoke_our_graph
 from st_callable_util import get_streamlit_cb  # Utility function to get a Streamlit callback handler with context
 
@@ -23,17 +23,13 @@ to implement only `on_llm_new_token`, a method that run on every new generation 
 
 --- 
 """
+st.set_page_config(page_title="PBL Design Assistant", page_icon="📚")
+openai_api_key = st.secrets["openai_api_key"]
 
-# Check if the API key is available as an environment variable
-if not os.getenv('OPENAI_API_KEY'):
-    # If not, display a sidebar input for the user to provide the API key
-    st.sidebar.header("OPENAI_API_KEY Setup")
-    api_key = st.sidebar.text_input(label="API Key", type="password", label_visibility="collapsed")
-    os.environ["OPENAI_API_KEY"] = api_key
-    # If no key is provided, show an info message and stop further execution and wait till key is entered
-    if not api_key:
-        st.info("Please enter your OPENAI_API_KEY in the sidebar.")
-        st.stop()
+# Title of the app
+st.title("Project-Based Learning Design Assistant")
+llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4", temperature=0.7)
+
 
 if "messages" not in st.session_state:
     # default initial message to render in message state

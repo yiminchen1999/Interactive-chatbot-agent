@@ -3,7 +3,7 @@ from typing import Annotated, TypedDict
 from langgraph.graph import START, END, StateGraph
 from langgraph.graph.message import AnyMessage, add_messages
 from langchain_openai import ChatOpenAI
-
+import streamlit as st
 # This is the default state same as "MessageState" TypedDict but allows us accessibility to custom keys
 class GraphsState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
@@ -11,13 +11,13 @@ class GraphsState(TypedDict):
 
 graph = StateGraph(GraphsState)
 
+openai_api_key = st.secrets["openai_api_key"]
+
+
 # Core invocation of the model
 def _call_model(state: GraphsState):
     messages = state["messages"]
-    llm = ChatOpenAI(
-        temperature=0.0,
-        streaming=True,
-    )
+    llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4", temperature=0.7)
     response = llm.invoke(messages)
     return {"messages": [response]}# add the response to the messages using LangGraph reducer paradigm
 
