@@ -1,5 +1,3 @@
-
-
 import streamlit as st
 from typing_extensions import TypedDict
 from langchain_openai import ChatOpenAI
@@ -68,14 +66,6 @@ def generate_driving_questions(state: State) -> State:
     state["messages"].append(("assistant", response.content))
     return state
 
-def refine_driving_questions(state: State) -> State:
-    """Refines the driving questions based on user feedback."""
-    user_message = state["messages"][-1][1]
-    prompt = f"Refine the driving questions based on this feedback: {user_message}"
-    response = llm.invoke([{"role": "user", "content": prompt}])
-    state["messages"].append(("assistant", response.content))
-    return state
-
 def finalize_output(state: State) -> State:
     """Finalizes the project idea and driving questions for download."""
     project_idea = state["messages"][-2][1]
@@ -93,7 +83,6 @@ graph_builder.add_node("intake_questions", intake_questions)
 graph_builder.add_node("generate_project_idea", generate_project_idea)
 graph_builder.add_node("refine_project_idea", refine_project_idea)
 graph_builder.add_node("generate_driving_questions", generate_driving_questions)
-graph_builder.add_node("refine_driving_questions", refine_driving_questions)
 graph_builder.add_node("finalize_output", finalize_output)
 
 # Define the flow
@@ -101,8 +90,7 @@ graph_builder.set_entry_point("intake_questions")
 graph_builder.add_edge("intake_questions", "generate_project_idea")
 graph_builder.add_edge("generate_project_idea", "refine_project_idea")
 graph_builder.add_edge("refine_project_idea", "generate_driving_questions")
-graph_builder.add_edge("generate_driving_questions", "refine_driving_questions")
-graph_builder.add_edge("refine_driving_questions", "finalize_output")
+graph_builder.add_edge("generate_driving_questions", "finalize_output")
 graph_builder.set_finish_point("finalize_output")
 
 # Compile the graph
@@ -138,11 +126,9 @@ def chatbot_sidebar():
             # Add user message to conversation history
             st.session_state["messages"].append(("user", user_input))
 
-
+            # Process user input through the graph
             initial_state: State = {"messages": st.session_state["messages"], "intake": st.session_state["intake"]}
-            updated_state = graph.execute(initial_state)
-
-
+            updated_state = graph.invoke(initial_state)
 
             # Update session state with responses
             st.session_state["messages"] = updated_state["messages"]
@@ -165,3 +151,4 @@ def display_chat():
 intake_sidebar()
 chatbot_sidebar()
 display_chat()
+
