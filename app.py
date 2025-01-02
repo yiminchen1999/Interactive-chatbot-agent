@@ -9,8 +9,6 @@ from st_callable_util import get_streamlit_cb  # Utility function to get a Strea
 
 # Streamlit page configuration
 st.set_page_config(page_title="PBL Design Assistant", page_icon="📚")
-load_dotenv()
-
 # Fetch API key
 openai_api_key = st.secrets.get("openai_api_key") or os.getenv("OPENAI_API_KEY")
 
