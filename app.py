@@ -10,7 +10,8 @@ from st_callable_util import get_streamlit_cb  # Utility function to get a Strea
 load_dotenv()
 
 
-
+st.set_page_config(page_title="PBL Design Assistant", page_icon="📚")
+openai_api_key = st.secrets["openai_api_key"]
 # st write magic
 """
 In this example, we're going to be creating our own [`BaseCallbackHandler`](https://api.python.langchain.com/en/latest/callbacks/langchain_core.callbacks.base.BaseCallbackHandler.html) called StreamHandler 
@@ -22,7 +23,7 @@ to implement only `on_llm_new_token`, a method that run on every new generation 
 
 --- 
 """
-st.set_page_config(page_title="PBL Design Assistant", page_icon="📚")
+
 openai_api_key = st.secrets["openai_api_key"]
 
 # Title of the app
