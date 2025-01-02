@@ -9,8 +9,7 @@ from st_callable_util import get_streamlit_cb  # Utility function to get a Strea
 
 load_dotenv()
 
-st.title("StreamLit 🤝 LangGraph")
-st.markdown("#### Simple Chat Streaming")
+
 
 # st write magic
 """
