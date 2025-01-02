@@ -1,9 +1,8 @@
 import streamlit as st
-from typing import List, Tuple
 from typing_extensions import TypedDict
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph
-from langgraph.callbacks.streamlit import StreamlitCallbackHandler
+from langchain.callbacks.base import BaseCallbackHandler
 
 # Ensure session state is initialized
 if "messages" not in st.session_state:
@@ -25,6 +24,14 @@ llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4", temperature=0.7)
 class State(TypedDict):
     messages: list  # List of tuples (sender, message)
     intake: dict  # Intake responses
+
+# Custom Streamlit Callback Handler
+class StreamlitCallbackHandler(BaseCallbackHandler):
+    def __init__(self, container):
+        self.container = container
+
+    def on_llm_new_token(self, token: str, **kwargs):
+        self.container.write(token, end="")
 
 # Define functions for each step in the PBL process
 def intake_questions(state: State) -> State:
@@ -51,24 +58,24 @@ def generate_project_idea(state: State) -> State:
     return state
 
 def refine_project_idea(state: State) -> State:
-    """Refines the project idea based on user feedback."""
-    user_message = state["messages"][-1][1]
-    prompt = f"Refine the project idea based on this feedback: {user_message}"
+    """Refines the project idea without user feedback."""
+    project_idea = state["messages"][-1][1]
+    prompt = f"Refine the following project idea:\n{project_idea}"
     response = llm.invoke([{"role": "user", "content": prompt}])
     state["messages"].append(("assistant", response.content))
     return state
 
 def generate_driving_questions(state: State) -> State:
-    """Generates three draft driving questions."""
+    """Generates draft driving questions."""
     project_idea = state["messages"][-1][1]
-    prompt = f"Based on the project idea: {project_idea}, generate three draft driving questions."
+    prompt = f"Generate three driving questions based on the following project idea:\n{project_idea}"
     response = llm.invoke([{"role": "user", "content": prompt}])
     state["messages"].append(("assistant", response.content))
     return state
 
 def finalize_output(state: State) -> State:
-    """Finalizes the project idea and driving questions for download."""
-    project_idea = state["messages"][-2][1]
+    """Finalizes the output for download."""
+    project_idea = state["messages"][-3][1]
     driving_questions = state["messages"][-1][1]
     final_output = f"Project Idea:\n{project_idea}\n\nDriving Questions:\n{driving_questions}"
     state["messages"].append(("assistant", "Your project idea and driving questions are ready for download."))
@@ -96,22 +103,17 @@ graph_builder.set_finish_point("finalize_output")
 # Compile the graph
 graph = graph_builder.compile()
 
-# Main app logic with streaming callback
+# Main app logic
 if st.session_state["current_step"]:
     initial_state: State = {"messages": st.session_state["messages"], "intake": st.session_state["intake"]}
-
-    # Use the StreamlitCallbackHandler for streaming responses
-    with StreamlitCallbackHandler(st.empty()) as streamlit_cb:
-        updated_state = graph.invoke_node(
-            st.session_state["current_step"],
-            initial_state,
-            callback=streamlit_cb  # Streaming updates
-        )
+    with st.container() as response_container:
+        streamlit_cb = StreamlitCallbackHandler(response_container)
+        updated_state = graph.invoke_node(st.session_state["current_step"], initial_state, callback=streamlit_cb)
     st.session_state["messages"] = updated_state["messages"]
     st.session_state["intake"] = updated_state.get("intake", {})
     st.session_state["current_step"] = graph.get_next_node(st.session_state["current_step"]) or None
 
-# Display conversation dynamically
+# Display conversation
 st.write("### Conversation:")
 for sender, message in st.session_state["messages"]:
     if sender == "user":
@@ -122,4 +124,3 @@ for sender, message in st.session_state["messages"]:
 # Provide download option for finalized output
 if "output" in st.session_state:
     st.download_button("Download Final Output", st.session_state["output"], "final_output.txt")
-
