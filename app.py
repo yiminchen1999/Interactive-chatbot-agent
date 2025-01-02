@@ -138,7 +138,6 @@ def chatbot_sidebar():
             # Add user message to conversation history
             st.session_state["messages"].append(("user", user_input))
 
-            # Process user input through the graph
             initial_state: State = {"messages": st.session_state["messages"], "intake": st.session_state["intake"]}
             updated_state = graph.invoke(initial_state)
 
