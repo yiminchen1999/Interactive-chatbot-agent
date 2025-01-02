@@ -12,12 +12,6 @@ openai_api_key = st.secrets.get("openai_api_key")
 # Debugging: Print the first few characters of the key
 st.write(f"API Key in use: {openai_api_key}...") if openai_api_key else st.warning("No API key found.")
 
-if not openai_api_key:
-    st.sidebar.header("API Key Setup")
-    openai_api_key = st.sidebar.text_input("Enter your OpenAI API key", type="password")
-    if st.sidebar.button("Set API Key"):
-        os.environ["OPENAI_API_KEY"] = openai_api_key
-        st.experimental_rerun()
 
 # Initialize ChatOpenAI
 llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4", temperature=0.7)
