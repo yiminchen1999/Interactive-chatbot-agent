@@ -2,16 +2,20 @@ import streamlit as st
 from typing_extensions import TypedDict
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph
+from langgraph.callbacks.streamlit import StreamlitCallbackHandler
 
 # Ensure session state is initialized
 if "messages" not in st.session_state:
     st.session_state["messages"] = []  # Initialize as an empty list
 if "intake" not in st.session_state:
     st.session_state["intake"] = {}  # Initialize intake responses
+if "current_step" not in st.session_state:
+    st.session_state["current_step"] = "intake_questions"  # Start with intake questions
 
 # Streamlit page configuration
 st.set_page_config(page_title="PBL Design Assistant", page_icon="📚")
 openai_api_key = st.secrets["openai_api_key"]
+
 # Title of the app
 st.title("Project-Based Learning Design Assistant")
 llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4", temperature=0.7)
@@ -30,11 +34,6 @@ def intake_questions(state: State) -> State:
         "What is the topic for your project?",
         "Which set of content standards will you be using (e.g., Common Core, NGSS, state-level standards)?",
         "Are there specific skills you want students to develop (e.g., social-emotional learning, 21st-century skills)?",
-        "How long should the project last?",
-        "How long are your class periods?",
-        "Do you want the students to work in groups?",
-        "What types of technology do the students have access to?",
-        "Is there a specific pedagogical model you would like to follow (e.g., Understanding by Design)?"
     ]
     for question in intake_questions:
         if question not in state["intake"]:
@@ -75,7 +74,7 @@ def finalize_output(state: State) -> State:
     state["output"] = final_output
     return state
 
-# Initialize StateGraph using the State type
+# Initialize StateGraph
 graph_builder = StateGraph(State)
 
 # Add nodes to the graph
@@ -96,59 +95,30 @@ graph_builder.set_finish_point("finalize_output")
 # Compile the graph
 graph = graph_builder.compile()
 
-# Sidebar for teacher intake questions
-def intake_sidebar():
-    st.sidebar.title("Teacher Intake")
-    intake_prompts = [
-        ("state_district", "In which state and district do you teach?"),
-        ("grade_subject", "Which grade level and subject area(s) do you teach?"),
-        ("topic", "What is the topic for your project?"),
-        ("standards", "Which set of content standards will you be using?"),
-        ("skills", "Specific skills for students to develop?"),
-        ("duration", "How long should the project last?"),
-        ("class_periods", "How long are your class periods?"),
-        ("group_work", "Do you want the students to work in groups?"),
-        ("technology", "What types of technology do students have access to?"),
-        ("pedagogical_model", "Specific pedagogical model to follow?")
-    ]
+# Main app logic with streaming callback
+if st.session_state["current_step"]:
+    initial_state: State = {"messages": st.session_state["messages"], "intake": st.session_state["intake"]}
 
-    for key, prompt in intake_prompts:
-        response = st.sidebar.text_input(prompt, key=key)
-        if response:
-            st.session_state["intake"][key] = response
+    # Use the StreamlitCallbackHandler for streaming responses
+    with StreamlitCallbackHandler(st.empty()) as streamlit_cb:
+        updated_state = graph.invoke_node(
+            st.session_state["current_step"],
+            initial_state,
+            callback=streamlit_cb  # Streaming updates
+        )
+    st.session_state["messages"] = updated_state["messages"]
+    st.session_state["intake"] = updated_state.get("intake", {})
+    st.session_state["current_step"] = graph.get_next_node(st.session_state["current_step"]) or None
 
-# Sidebar for user input
-def chatbot_sidebar():
-    st.sidebar.title("Chat with the Assistant")
-    user_input = st.sidebar.text_input("Your message", key="input", placeholder="Type your message here...")
-    if st.sidebar.button("Send"):
-        if user_input:
-            # Add user message to conversation history
-            st.session_state["messages"].append(("user", user_input))
+# Display conversation dynamically
+st.write("### Conversation:")
+for sender, message in st.session_state["messages"]:
+    if sender == "user":
+        st.write(f"**You:** {message}")
+    else:
+        st.write(f"**Assistant:** {message}")
 
-            # Process user input through the graph
-            initial_state: State = {"messages": st.session_state["messages"], "intake": st.session_state["intake"]}
-            updated_state = graph.invoke(initial_state)
-
-            # Update session state with responses
-            st.session_state["messages"] = updated_state["messages"]
-            st.session_state["intake"] = updated_state.get("intake", {})
-
-# Main app display
-def display_chat():
-    st.write("### Conversation:")
-    messages = st.session_state.get("messages", [])
-    for sender, message in messages:
-        if sender == "user":
-            st.write(f"**You:** {message}")
-        else:
-            st.write(f"**Assistant:** {message}")
-
-    if "output" in st.session_state:
-        st.download_button("Download Final Output", st.session_state["output"], "final_output.txt")
-
-# Run the sidebar and main chat display
-intake_sidebar()
-chatbot_sidebar()
-display_chat()
+# Provide download option for finalized output
+if "output" in st.session_state:
+    st.download_button("Download Final Output", st.session_state["output"], "final_output.txt")
 
