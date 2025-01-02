@@ -1,4 +1,5 @@
 import streamlit as st
+from typing import List, Tuple
 from typing_extensions import TypedDict
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph
