@@ -7,7 +7,6 @@ from langchain_openai import ChatOpenAI
 from graph import invoke_our_graph
 from st_callable_util import get_streamlit_cb  # Utility function to get a Streamlit callback handler with context
 
-load_dotenv()
 
 
 st.set_page_config(page_title="PBL Design Assistant", page_icon="📚")
