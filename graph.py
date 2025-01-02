@@ -5,13 +5,13 @@ from langgraph.graph.message import AnyMessage, add_messages
 from langchain_openai import ChatOpenAI
 import streamlit as st
 # This is the default state same as "MessageState" TypedDict but allows us accessibility to custom keys
+
+openai_api_key = st.secrets["openai_api_key"]
 class GraphsState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
     # Custom keys for additional data can be added here such as - conversation_id: str
 
 graph = StateGraph(GraphsState)
-
-openai_api_key = st.secrets["openai_api_key"]
 
 
 # Core invocation of the model
