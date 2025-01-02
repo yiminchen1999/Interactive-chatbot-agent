@@ -1,4 +1,5 @@
 
+from langchain_openai import ChatOpenAI
 
 import streamlit as st
 from langchain_core.messages import AIMessage, HumanMessage
