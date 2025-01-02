@@ -25,6 +25,14 @@ class State(TypedDict):
     messages: list  # List of tuples (sender, message)
     intake: dict  # Intake responses
 
+# Custom Streamlit Callback Handler
+class StreamlitCallbackHandler(BaseCallbackHandler):
+    def __init__(self, container):
+        self.container = container
+
+    def on_llm_new_token(self, token: str, **kwargs):
+        self.container.write(token, end="")
+
 # Define functions for each step in the PBL process
 def intake_questions(state: State) -> State:
     """Collects teacher-specific context for the PBL design process."""
@@ -98,7 +106,9 @@ graph = graph_builder.compile()
 # Main app logic
 if st.session_state["current_step"]:
     initial_state: State = {"messages": st.session_state["messages"], "intake": st.session_state["intake"]}
-    updated_state = graph.invoke(st.session_state["current_step"], initial_state)
+    with st.container() as response_container:
+        streamlit_cb = StreamlitCallbackHandler(response_container)
+        updated_state = graph.invoke(st.session_state["current_step"], initial_state, callback=streamlit_cb)
     st.session_state["messages"] = updated_state["messages"]
     st.session_state["intake"] = updated_state.get("intake", {})
     st.session_state["current_step"] = graph.get_next_node(st.session_state["current_step"]) or None
