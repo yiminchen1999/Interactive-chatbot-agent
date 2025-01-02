@@ -1,6 +1,4 @@
 import os
-from dotenv import load_dotenv
-
 import streamlit as st
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_openai import ChatOpenAI
@@ -9,11 +7,10 @@ from st_callable_util import get_streamlit_cb  # Utility function to get a Strea
 
 # Streamlit page configuration
 st.set_page_config(page_title="PBL Design Assistant", page_icon="📚")
-# Fetch API key
 openai_api_key = st.secrets.get("openai_api_key")
 
 # Debugging: Print the first few characters of the key
-st.write(f"API Key in use: {openai_api_key[:14]}...") if openai_api_key else st.warning("No API key found.")
+st.write(f"API Key in use: {openai_api_key}...") if openai_api_key else st.warning("No API key found.")
 
 if not openai_api_key:
     st.sidebar.header("API Key Setup")
